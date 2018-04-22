@@ -110,11 +110,11 @@ class AsmParser {
     }
     std::string checkComma(const std::string& str, bool comma) {
         if (comma) {
-            if(*(str.rbegin()) != ',')
+            if(str.back() != ',')
                 throw SyntaxError("Expected comma after \"" + str + "\"", _linePos);
             return str.substr(0, str.length() - 1);
         }
-        else if(*(str.rbegin()) == ',')
+        else if(str.back() == ',')
             throw SyntaxError("Unxpected comma after \"" + str + "\"", _linePos);
         return str;
     }
@@ -422,11 +422,11 @@ public:
                 continue;
             }
 
-            bool jmode = (*inst.rbegin() == 'j');
+            bool jmode = (inst.back() == 'j');
             if (jmode)
                 inst.pop_back();
 
-            if (inst[0] == ';')
+            if (inst.front() == ';')
                 continue;
             if (inst == "nop")
                 setNop(opcAlu, opcSource, opcDestination, A, B, D);

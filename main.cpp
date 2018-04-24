@@ -511,7 +511,7 @@ int main(int argc, char* argv[]) {
     AsmParser parser;
     int result;
     try {
-        result = parser.parse("test.asm", "out.rom");
+        result = parser.parse(argv[1], outFName);
     }
     catch (std::exception& e) {
         std::cerr << e.what() << std::endl;

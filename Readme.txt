@@ -1,4 +1,4 @@
-Hirou - Ассемблер для МТ1804
+﻿Hirou - Ассемблер для МТ1804
 
 Возможности:
 * Asm-подобный синтаксис инструкций
@@ -30,7 +30,7 @@ aluDir R, S, L
 	* and = R and S
 	* rand = ~R and S
 	* xor = R xor S
-	* nxor = ~(R xor S)
+	* xnor = ~(R xor S)
 	* addc = R + S + 1
 	* subc = S - R 
 	* rsubc = R - S

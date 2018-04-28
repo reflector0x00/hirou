@@ -49,7 +49,7 @@ class AsmParser {
             return 0b0101;
         if (alu == "xor")
             return 0b0110;
-        if (alu == "nxor")
+        if (alu == "xnor")
             return 0b0111;
         if (alu == "addc")
             return 0b1000;
@@ -368,7 +368,7 @@ public:
             std::cerr << "Can't open file \"" << inFName << "\"" << std::endl;
             return 1;
         }
-        std::ofstream outFile(outFName);
+        std::ofstream outFile(outFName, std::ios::binary | std::ios::out);
         if (!outFile.is_open()) {
             std::cerr << "Can't open file \"" << outFName << "\"" << std::endl;
             return 2;
@@ -397,7 +397,7 @@ public:
 
 
         _addrPos = 0;
-        for (_linePos = 0; inFile.good() && (_addrPos < 16); ++_linePos) {
+        for (_linePos = 1; inFile.good() && (_addrPos < 16); ++_linePos) {
             std::getline(inFile, line);
             if (line.empty())
                 continue;
@@ -501,11 +501,11 @@ public:
 int main(int argc, char* argv[]) {
     std::string outFName;
     if ((argc < 2) || (argc > 3)) {
-        std::cout << "Usage: hirou input.asm (output.bin)" << std::endl;
+        std::cout << "Usage: hirou input.asm (output.rom)" << std::endl;
         return 1;
     }
     else if (argc == 2)
-        outFName = std::string(argv[1]) + ".bin";
+        outFName = std::string(argv[1]) + ".rom";
     else
         outFName = argv[2];
     AsmParser parser;

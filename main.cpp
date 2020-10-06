@@ -22,6 +22,11 @@ public:
     }
 };
 
+unsigned int htonl(unsigned int x) {
+    unsigned char* s = (unsigned char*)&x;
+    return (unsigned int)(s[0] << 24 | s[1] << 16 | s[2] << 8 | s[3]);
+}
+
 class AsmParser {
     size_t _linePos;
     size_t _addrPos;
@@ -173,7 +178,7 @@ class AsmParser {
                 A = 0;
                 --source;
             }
-            return 0b0010;
+            return 0b0011;
         }
         else {
             std::string sub;
@@ -307,15 +312,31 @@ class AsmParser {
         }
         return addr;
     }
-    void writeRom(std::ofstream& file, size_t opcAlu, size_t opcSource, size_t opcDestination, size_t A, size_t B, size_t D, size_t opcJump, size_t addr) {
-        file.put((char)D);
-        file.put((char)B);
-        file.put((char)A);
-        file.put((char)opcAlu);
-        file.put((char)opcSource);
-        file.put((char)opcDestination);
-        file.put((char)opcJump);
-        file.put((char)addr);
+	char concat(size_t h, size_t l) {
+		return (char)((h << 4) | l);
+	}
+	
+    void writeRom(std::fstream& file, size_t opcAlu, size_t opcSource, size_t opcDestination, size_t A, size_t B, size_t D, size_t opcJump, size_t addr) {
+		size_t a0 = addr & 0xF;
+		size_t a1 = (addr >> 4) & 0xF;
+		size_t a2 = (addr >> 8) & 0xF;
+		
+		file.put((char)0); // cmd
+		file.put(concat(a2, a1)); 
+		file.put(concat(a0, opcJump)); 
+		file.put(concat(opcDestination, opcSource)); 
+		file.put(concat(opcAlu, A)); 
+		file.put(concat(B, D)); 
+		
+        
+		// file.put((char)D);
+        // file.put((char)B);
+        // file.put((char)A);
+        // file.put((char)opcAlu);
+        // file.put((char)opcSource);
+        // file.put((char)opcDestination);
+        // file.put((char)opcJump);
+        // file.put((char)addr);
     }
     std::string toBinary(size_t num) {
         std::string result(4, '0');
@@ -340,16 +361,16 @@ class AsmParser {
         in >> arg;
         arg = checkComma(arg, comma);
     }
-    inline void writeNop(std::ofstream& file) {
+    inline void writeNop(std::fstream& file) {
         writeRom(file, 0b0100, 0b0111, 0b0001, 0b0000, 0b0000, 0b0000, 0b0010, 0b0000);
     }
     //TODO: unite it
     bool isLabel(const std::string& label) {
-        static std::regex regexp("[a-zA-Z]+[a-zA-Z0-9]*\\:");
+        static std::regex regexp("[a-zA-Z_]+[a-zA-Z0-9_]*\\:");
         return std::regex_match(label, regexp);
     }
     bool checkLabel(const std::string& label) {
-        static std::regex regexp("[a-zA-Z]+[a-zA-Z0-9]*");
+        static std::regex regexp("[a-zA-Z_]+[a-zA-Z0-9_]*");
         return std::regex_match(label, regexp);
     }
     void setNop(size_t& opcAlu, size_t& opcSource, size_t& opcDestination, size_t& A, size_t& B, size_t& D) {
@@ -368,11 +389,20 @@ public:
             std::cerr << "Can't open file \"" << inFName << "\"" << std::endl;
             return 1;
         }
-        std::ofstream outFile(outFName, std::ios::binary | std::ios::out);
-        if (!outFile.is_open()) {
+		std::ofstream cfile(outFName);
+		if (!cfile.is_open()) {
             std::cerr << "Can't open file \"" << outFName << "\"" << std::endl;
+            return 3;
+        }	
+		
+        std::fstream outFile(outFName, std::ios::binary | std::ios::in | std::ios::out);
+        if (!outFile.is_open()) {
+            std::cerr << "Can't reopen file \"" << outFName << "\"" << std::endl;
             return 2;
         }
+		outFile.write("MTEM", 4);
+		int dummy = 0;
+		outFile.write((const char*)&dummy, 4);
 
         std::string line;
         std::string inst;
@@ -397,7 +427,7 @@ public:
 
 
         _addrPos = 0;
-        for (_linePos = 1; inFile.good() && (_addrPos < 16); ++_linePos) {
+        for (_linePos = 1; inFile.good() /* && (_addrPos < 16) */; ++_linePos) {
             std::getline(inFile, line);
             if (line.empty())
                 continue;
@@ -405,6 +435,7 @@ public:
             parser.str(line);
             parser.clear();
             parser >> inst;
+			// std::cout << line << " <> " << inst << std::endl;
 
             strAlu.clear();
             strR.clear();
@@ -435,7 +466,7 @@ public:
             else {
                 try {
                     opcJump = parseJump(inst, useAr);
-                    wasJump = true;
+					wasJump = true;
                     if (useAr)
                         getArg(parser, strAddr, false);
                     setNop(opcAlu, opcSource, opcDestination, A, B, D);
@@ -467,31 +498,50 @@ public:
                 opcSource = parseSourceRecieve(strR, strS, A, B, D);
             if (!strD.empty())
                 opcDestination  = parseDestination(strD, A, B, opcSource);
+			
 
             if (useAr)
                 addr = parseAddress(strAddr);
 
+			// std::cout << line << " <> " << inst << std::endl;
+
             //log(std::cout, opcAlu, opcSource, opcDestination, A, B, D, opcJump, addr);
             writeRom(outFile, opcAlu, opcSource, opcDestination, A, B, D, opcJump, addr);
+			// std::cout << line << " <> " << inst << std::endl;
+
             ++_addrPos;
         }
 
-        for(; _addrPos < 16; ++_addrPos) {
-            writeNop(outFile);
-        }
+        // for(; _addrPos < 16; ++_addrPos) {
+            // writeNop(outFile);
+        // }
 
         for (auto& x : _labelList) {
             auto it = _labels.find(x.label);
             if (it != _labels.end()) {
-                outFile.seekp(x.addrPos * 8 + 7);
-                outFile.put((char)it->second);
-            }
+				size_t a0 = it->second & 0xF;
+				size_t a1 = (it->second >> 4) & 0xF;
+				size_t a2 = (it->second >> 8) & 0xF;
+
+				outFile.seekg(x.addrPos * 6 + 10);
+				opcJump = outFile.get() & 0xF;
+                // outFile.seekp(x.addrPos * 8 + 7);
+                outFile.seekp(x.addrPos * 6 + 9);
+                // outFile.put((char)it->second);
+				outFile.put(concat(a2, a1)); 
+				outFile.put(concat(a0, opcJump)); 
+			}
             else
                 throw SyntaxError("Unknown label \"" + x.label + "\"", x.linePos);
         }
+		
+		outFile.seekp(4);
+		int count = htonl(_addrPos);
+		outFile.write((const char*)&count, 4);
 
-        if (_addrPos > 16)
-            throw SyntaxError("Memory overflow", _linePos);
+
+        // if (_addrPos > 16)
+            // throw SyntaxError("Memory overflow", _linePos);
         return 0;
     }
 
@@ -501,11 +551,11 @@ public:
 int main(int argc, char* argv[]) {
     std::string outFName;
     if ((argc < 2) || (argc > 3)) {
-        std::cout << "Usage: hirou input.asm (output.rom)" << std::endl;
+        std::cout << "Usage: hirou input.asm (output.mte)" << std::endl;
         return 1;
     }
     else if (argc == 2)
-        outFName = std::string(argv[1]) + ".rom";
+        outFName = std::string(argv[1]) + ".mte";
     else
         outFName = argv[2];
     AsmParser parser;
